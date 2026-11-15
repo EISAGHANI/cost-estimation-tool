@@ -1,10 +1,28 @@
 from decimal import Decimal
 from django.test import SimpleTestCase
+from django.urls import reverse
+from .forms import CostEstimateForm
 from .tax.gross_up import gross_up
 from .tax.uk import personal_allowance, uk_income_tax
 from .tax.social_security import applicable_social_security
 from .tax import benefits, swiss
 from .calculator import AssignmentInputs, estimate_assignment
+
+
+# The test case from the brief, as the form receives it.
+TEST_CASE = {
+    "home_country": "CH",
+    "host_country": "UK",
+    "duration_months": "24",
+    "base_salary_chf": "150000",
+    "bonus_chf": "20000",
+    "exchange_rate": "1.10",
+    "housing_monthly_gbp": "3000",
+    "relocation_allowance_chf": "5000",
+    "moving_costs_gbp": "6000",
+    "temporary_housing_gbp": "4000",
+    "hypothetical_swiss_tax_chf": "25000",
+}
 
 class UKIncomeTaxTests(SimpleTestCase):
 
@@ -88,3 +106,39 @@ class CalculatorTests(SimpleTestCase):
         expected = (year.home_pay_total + year.benefits_total
                     + year.host_tax_total - year.deductions_total)
         self.assertEqual(year.total_cost, expected)
+
+class FormErrorTests(SimpleTestCase):
+
+    def test_missing_salary_gives_a_clear_message(self):
+        data = {**TEST_CASE, "base_salary_chf": ""}
+        form = CostEstimateForm(data)
+        self.assertFalse(form.is_valid())
+        self.assertIn("please enter an amount", form.errors["base_salary_chf"][0])
+
+    def test_letters_instead_of_a_number_give_a_clear_message(self):
+        form = CostEstimateForm({**TEST_CASE, "bonus_chf": "twenty thousand"})
+        self.assertFalse(form.is_valid())
+        self.assertIn("please enter a number", form.errors["bonus_chf"][0])
+
+    def test_unknown_country_is_rejected(self):
+        form = CostEstimateForm({**TEST_CASE, "host_country": "FR"})
+        self.assertFalse(form.is_valid())
+
+
+class PageTests(SimpleTestCase):
+
+    def test_cost_page_shows_the_test_case_form(self):
+        response = self.client.get(reverse("estimates:cost_estimate"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Calculate")
+
+    def test_valid_post_shows_the_cost_table(self):
+        response = self.client.post(reverse("estimates:cost_estimate"), TEST_CASE)
+        self.assertContains(response, "Total employer cost")
+        self.assertContains(response, "Year 2 in detail")
+
+    def test_bad_input_shows_a_message_not_a_crash(self):
+        response = self.client.post(reverse("estimates:cost_estimate"),
+                                    {**TEST_CASE, "exchange_rate": "abc"})
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "please enter a number")        

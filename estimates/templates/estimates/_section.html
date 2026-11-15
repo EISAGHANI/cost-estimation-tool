@@ -1,0 +1,12 @@
+<tbody>
+  <tr class="section-title"><th colspan="4">{{ title }}</th></tr>
+  {% for line in lines %}
+  <tr>
+    <td>{{ line.label }}{% if line.working %}<div class="working">{{ line.working }}</div>{% endif %}</td>
+    <td>{% if line.tag %}<span class="tag">{{ line.tag }}</span>{% endif %}</td>
+    <td class="num">{{ line.amount|floatformat:"2g" }}</td>
+    <td class="sources">{% for source in line.sources %}<a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.title }}</a>{% endfor %}</td>
+  </tr>
+  {% endfor %}
+  <tr class="subtotal"><td colspan="2">Subtotal</td><td class="num">{{ total|floatformat:"2g" }}</td><td></td></tr>
+</tbody>

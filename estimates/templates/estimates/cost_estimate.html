@@ -1,0 +1,110 @@
+{% extends "estimates/base.html" %}
+
+{% block content %}
+<section class="card">
+  <h2>Inputs</h2>
+  <p class="intro">The form starts with the test case from the brief. Change any value and press <strong>Calculate</strong>.</p>
+
+  {% if form.errors %}
+  <div class="error-summary" role="alert">
+    <strong>Please correct the fields marked in red.</strong>
+    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+  </div>
+  {% endif %}
+
+  <form method="post" novalidate>
+    {% csrf_token %}
+    {% for title, fields in form.fieldsets %}
+    <fieldset>
+      <legend>{{ title }}</legend>
+      {% for field in fields %}
+      <div class="field{% if field.errors %} has-error{% endif %}">
+        <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+        {{ field }}
+        {% if field.help_text %}<small class="help">{{ field.help_text }}</small>{% endif %}
+        {% for error in field.errors %}<p class="error">{{ error }}</p>{% endfor %}
+      </div>
+      {% endfor %}
+    </fieldset>
+    {% endfor %}
+    <button type="submit">Calculate</button>
+  </form>
+</section>
+
+{% if estimate %}
+<section class="card">
+  <h2>Total employer cost</h2>
+  <table class="summary">
+    <thead>
+      <tr><th>Period</th><th class="num">Home pay (£)</th><th class="num">Total employer cost (£)</th><th class="num">Multiple of home pay</th></tr>
+    </thead>
+    <tbody>
+      {% for year in estimate.years %}
+      <tr>
+        <td>Year {{ year.year }}</td>
+        <td class="num">{{ year.home_pay_total|floatformat:"2g" }}</td>
+        <td class="num">{{ year.total_cost|floatformat:"2g" }}</td>
+        <td class="num">{{ year.multiple_of_home_pay }} ×</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th>Whole assignment</th>
+        <th class="num">{{ estimate.total_home_pay|floatformat:"2g" }}</th>
+        <th class="num">{{ estimate.total_cost|floatformat:"2g" }}</th>
+        <th class="num">{{ estimate.multiple_of_home_pay }} ×</th>
+      </tr>
+    </tfoot>
+  </table>
+  <p class="callout"><strong>Social security:</strong> {{ estimate.social_security.rule }}</p>
+</section>
+
+{% for year in estimate.years %}
+<section class="card">
+  <h2>Year {{ year.year }} in detail</h2>
+  <table class="breakdown">
+    <thead><tr><th>Item and working</th><th>UK treatment</th><th class="num">£</th><th>Source</th></tr></thead>
+    {% include "estimates/_section.html" with title="1. Home pay" lines=year.home_pay total=year.home_pay_total %}
+    {% include "estimates/_section.html" with title="2. Assignment benefits" lines=year.benefits total=year.benefits_total %}
+    {% include "estimates/_section.html" with title="3. Host tax and charges paid by the employer" lines=year.host_tax total=year.host_tax_total %}
+    {% include "estimates/_section.html" with title="4. Deductions (reduce the cost)" lines=year.deductions total=year.deductions_total %}
+    <tfoot>
+      <tr><th colspan="2">Total employer cost = 1 + 2 + 3 − 4</th><th class="num">{{ year.total_cost|floatformat:"2g" }}</th><th></th></tr>
+    </tfoot>
+  </table>
+
+  <details>
+    <summary>Show the tax-on-tax working for year {{ year.year }}</summary>
+    <p>I, the UK taxable pay before tax, is £{{ year.taxable_pay_before_tax|floatformat:"2g" }}. Each round works out the tax on I + T and uses it as the next T, until T changes by less than 1p.</p>
+    <table class="working-table">
+      <thead><tr><th>Round</th><th class="num">T going in (£)</th><th class="num">Tax on I + T (£)</th></tr></thead>
+      <tbody>
+        {% for number, before, after in year.gross_up.steps %}
+        <tr><td>{{ number }}</td><td class="num">{{ before|floatformat:"2g" }}</td><td class="num">{{ after|floatformat:"2g" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p>Final check: tax on £{{ year.gross_up.grossed_up_income|floatformat:"2g" }} with 2026/27 bands.</p>
+    <table class="working-table">
+      <thead><tr><th>Band</th><th class="num">Income in band (£)</th><th class="num">Rate</th><th class="num">Tax (£)</th></tr></thead>
+      <tbody>
+        <tr><td>Personal Allowance after the taper</td><td class="num">{{ year.uk_tax.personal_allowance|floatformat:"2g" }}</td><td class="num">0%</td><td class="num">0.00</td></tr>
+        {% for band in year.uk_tax.bands %}
+        <tr><td>{{ band.name }}</td><td class="num">{{ band.amount|floatformat:"2g" }}</td><td class="num">{{ band.percent }}</td><td class="num">{{ band.tax|floatformat:"2g" }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <p class="sources">Sources: {% for source in year.host_tax.0.sources %}<a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.title }}</a>{% endfor %}</p>
+  </details>
+</section>
+{% endfor %}
+
+<section class="card">
+  <h2>Assumptions</h2>
+  <ul>
+    {% for assumption in estimate.assumptions %}<li>{{ assumption }}</li>{% endfor %}
+  </ul>
+</section>
+{% endif %}
+{% endblock %}
