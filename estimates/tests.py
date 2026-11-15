@@ -4,6 +4,7 @@ from .tax.gross_up import gross_up
 from .tax.uk import personal_allowance, uk_income_tax
 from .tax.social_security import applicable_social_security
 from .tax import benefits, swiss
+from .calculator import AssignmentInputs, estimate_assignment
 
 class UKIncomeTaxTests(SimpleTestCase):
 
@@ -55,3 +56,35 @@ class BenefitTests(SimpleTestCase):
         self.assertEqual(moving.taxable, Decimal("0"))
         self.assertEqual(temporary.taxable, Decimal("2000"))
         self.assertEqual(moving.treatment, benefits.NOT_TAXABLE)    
+
+class CalculatorTests(SimpleTestCase):
+
+    def setUp(self):
+        inputs = AssignmentInputs(
+            home_country="CH", host_country="UK", duration_months=24,
+            exchange_rate=Decimal("1.10"),
+            base_salary_chf=Decimal("150000"), bonus_chf=Decimal("20000"),
+            housing_monthly_gbp=Decimal("3000"), relocation_allowance_chf=Decimal("5000"),
+            moving_costs_gbp=Decimal("6000"), temporary_housing_gbp=Decimal("4000"),
+            hypothetical_swiss_tax_chf=Decimal("25000"),
+        )
+        self.estimate = estimate_assignment(inputs)
+
+    def test_test_case_gives_a_table_for_both_years(self):
+        self.assertEqual([year.year for year in self.estimate.years], [1, 2])
+
+    def test_one_off_benefits_only_in_year_one(self):
+        year1, year2 = self.estimate.years
+        self.assertEqual(len(year1.benefits), 4)
+        self.assertEqual(len(year2.benefits), 1)
+
+    def test_year_one_taxable_pay_before_tax(self):
+        # home pay 154,545.46 - hypothetical tax 22,727.27 - hypothetical social security 9,672.91
+        # + taxable benefits (36,000 + 4,545.45 + 2,000) = 164,690.73
+        self.assertEqual(self.estimate.years[0].taxable_pay_before_tax, Decimal("164690.73"))
+
+    def test_total_is_sum_of_sections(self):
+        year = self.estimate.years[0]
+        expected = (year.home_pay_total + year.benefits_total
+                    + year.host_tax_total - year.deductions_total)
+        self.assertEqual(year.total_cost, expected)
