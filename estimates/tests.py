@@ -1,10 +1,9 @@
 from decimal import Decimal
-
 from django.test import SimpleTestCase
-
 from .tax.gross_up import gross_up
 from .tax.uk import personal_allowance, uk_income_tax
-
+from .tax import swiss
+from .tax.social_security import applicable_social_security
 
 class UKIncomeTaxTests(SimpleTestCase):
 
@@ -33,3 +32,18 @@ class GrossUpTests(SimpleTestCase):
 
     def test_zero_income_gives_zero_tax(self):
         self.assertEqual(gross_up(Decimal("0")).tax, Decimal("0"))
+
+class SocialSecurityTests(SimpleTestCase):
+
+    def test_two_year_posting_stays_in_swiss_system(self):
+        decision = applicable_social_security("CH", "UK", 24)
+        self.assertEqual(decision.country, "CH")
+        self.assertFalse(decision.uk_nic_due)
+
+    def test_longer_posting_moves_to_uk_system(self):
+        self.assertTrue(applicable_social_security("CH", "UK", 36).uk_nic_due)
+
+    def test_swiss_contributions_on_test_case_pay(self):
+        share = swiss.social_security_share(Decimal("170000"))
+        self.assertEqual(share.ahv_iv_eo, Decimal("9010.000"))  # 5.3% of 170,000
+        self.assertEqual(share.alv, Decimal("1630.2000"))       # 1.1% of the 148,200 ceiling        
