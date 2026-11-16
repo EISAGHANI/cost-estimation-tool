@@ -7,6 +7,8 @@ from .tax.uk import personal_allowance, uk_income_tax
 from .tax.social_security import applicable_social_security
 from .tax import benefits, swiss
 from .calculator import AssignmentInputs, estimate_assignment
+from .immigration import SWITZERLAND_TO_UK, TOPICS
+from .sources import SOURCES
 
 
 # The test case from the brief, as the form receives it.
@@ -146,4 +148,21 @@ class PageTests(SimpleTestCase):
     def test_immigration_page_covers_the_three_required_topics(self):
         response = self.client.get(reverse("estimates:immigration"))
         for topic in ["Work permit", "Business visit", "Passport"]:
-            self.assertContains(response, topic)            
+            self.assertContains(response, topic)    
+
+class SourceTests(SimpleTestCase):
+
+    OFFICIAL_DOMAINS = ("https://www.gov.uk/", "https://sozialversicherungen.admin.ch/",
+                        "https://swisstaxcalculator.estv.admin.ch/")
+
+    def test_every_source_is_an_official_https_page(self):
+        for key, source in SOURCES.items():
+            self.assertTrue(source.url.startswith(self.OFFICIAL_DOMAINS), key)
+
+    def test_every_immigration_requirement_has_a_source(self):
+        for requirement in SWITZERLAND_TO_UK:
+            self.assertTrue(requirement.sources, requirement.title)
+            self.assertIn(requirement.topic, TOPICS)
+
+    def test_swiss_tax_default_has_been_filled_in(self):
+        self.assertGreater(swiss.DEFAULT_HYPOTHETICAL_INCOME_TAX_CHF, 0)        
