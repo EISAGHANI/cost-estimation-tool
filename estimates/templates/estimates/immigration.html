@@ -1,0 +1,36 @@
+{% extends "estimates/base.html" %}
+
+{% block content %}
+<section class="card">
+  <h2>Immigration: a Swiss national working in the UK for 2 years</h2>
+  <p class="intro">What the employee and the UK subsidiary need, how long each step takes and what it costs. Every line links to the official page it comes from.</p>
+  <p class="callout"><strong>Plan ahead:</strong> {{ planning_note }}
+    {% for source in planning_sources %}<a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.title }}</a>{% endfor %}
+  </p>
+</section>
+
+{% for topic, requirements in groups %}
+<section class="card">
+  <h2>{{ topic }}</h2>
+  <table class="breakdown">
+    <thead><tr><th>Requirement</th><th>How long</th><th class="num">Cost (£)</th><th>Source</th></tr></thead>
+    <tbody>
+      {% for requirement in requirements %}
+      <tr>
+        <td><strong>{{ requirement.title }}</strong><div class="working">{{ requirement.detail }}</div></td>
+        <td>{{ requirement.time }}</td>
+        <td class="num">{{ requirement.cost_gbp|floatformat:"0g" }}<div class="working">{{ requirement.cost_note }}</div></td>
+        <td class="sources">{% for source in requirement.sources %}<a href="{{ source.url }}" target="_blank" rel="noopener">{{ source.title }}</a>{% endfor %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endfor %}
+
+<section class="card">
+  <h2>Total immigration fees</h2>
+  <p class="big">£{{ total_cost|floatformat:"0g" }}</p>
+  <p class="intro">Sum of the fees above for a medium or large sponsor. It leaves out the optional £750 priority licence service.</p>
+</section>
+{% endblock %}

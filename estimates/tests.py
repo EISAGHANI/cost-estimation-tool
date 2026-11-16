@@ -141,4 +141,9 @@ class PageTests(SimpleTestCase):
         response = self.client.post(reverse("estimates:cost_estimate"),
                                     {**TEST_CASE, "exchange_rate": "abc"})
         self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "please enter a number")        
+        self.assertContains(response, "please enter a number")
+
+    def test_immigration_page_covers_the_three_required_topics(self):
+        response = self.client.get(reverse("estimates:immigration"))
+        for topic in ["Work permit", "Business visit", "Passport"]:
+            self.assertContains(response, topic)            
